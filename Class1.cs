@@ -12,6 +12,11 @@ using JetBrains.Annotations;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using UnityEngine;
+using System.Text.RegularExpressions;
+using SE.Food;
+using System.Reflection.Emit;
+using MalbersAnimations;
+using System.Reflection;
 
 namespace SEModLoader
 {
@@ -27,6 +32,9 @@ namespace SEModLoader
         private static Harmony harmony;
         public static Dictionary<string, string> moddedresources = new Dictionary<string, string>();
         public static BepInEx.Logging.ManualLogSource log;
+        public static string oldsr = "";
+        public static string newsr = "";
+        public static Dictionary<StreamReader, string> substitution = new Dictionary<StreamReader, string>();
 
         public void Awake()
         {
@@ -60,12 +68,14 @@ namespace SEModLoader
             }
         }
     }
+
     [HarmonyPatch(typeof(StreamReader))]
     [HarmonyPatch(MethodType.Constructor)]
     [HarmonyPatch(new Type[] { typeof(string) })]
     static class SE_StreamReaderPatch
     {
-        static bool Prefix(ref string path, ref StreamReader __instance)
+
+        static void Postfix(ref string path, ref StreamReader __instance)
         {
             if (path.Contains("Summa Expeditionis_Data") && path.Contains(".json") && !path.Contains(".meta"))
             {
@@ -78,21 +88,37 @@ namespace SEModLoader
 
                         var moddedjson = Helpers.JsonHandler(path, key);
 
+                        // Use a MemoryStream with the modified JSON content
                         var jsonBytes = Encoding.UTF8.GetBytes(moddedjson);
                         var memoryStream = new MemoryStream(jsonBytes);
+                        SEModLoader.substitution.Add(__instance, new StreamReader(memoryStream).ReadToEnd());
 
+                        // Replace __instance with a StreamReader that reads from memory
                         __instance = new StreamReader(memoryStream);
 
-                        return false;
+                        // Skip the original constructor
                     }
                 }
             }
-            return true;
         }
-
     }
 
-    
+    [HarmonyPatch(typeof(StreamReader), "ReadToEnd")]
+    static class ReadToEnd_Patch
+    {
+        static void Postfix(StreamReader __instance, ref string __result)
+        {
+        if(SEModLoader.substitution.ContainsKey(__instance))
+            {
+                __result = SEModLoader.substitution[__instance];
+                SEModLoader.log.LogInfo("ReadToEnd() result modified !");
+            }
+        }
+    }
+
+
+
+
 
     public class Helpers
     {
@@ -125,77 +151,100 @@ namespace SEModLoader
 
         static public string JsonHandler(string original, string modded)
         {
-            var o = File.ReadAllText(original);
-            JObject jsonObject = JObject.Parse(o);
+            var originalJson = File.ReadAllText(original);
+            JObject originalObject = JObject.Parse(originalJson);
 
-            var m = File.ReadAllText(modded);
-            Dictionary<string, string> moddedkeyValuePairs = new Dictionary<string, string>();
-            PopulateDictionary(JObject.Parse(m), moddedkeyValuePairs);
+            var moddedJson = File.ReadAllText(modded);
+            JObject moddedObject = JObject.Parse(moddedJson);
 
-            foreach (var kvp in moddedkeyValuePairs)
-            {
-                UpdateJsonValue(jsonObject, kvp.Key, kvp.Value);
-            }
+            // Perform the comparison and update
+            CompareAndUpdateJson(originalObject, moddedObject);
 
-            string formattedJson = jsonObject.ToString(Newtonsoft.Json.Formatting.Indented);
-            SEModLoader.log.LogInfo("New text ! " + formattedJson);
+            // Format the updated JSON
+            string formattedJson = originalObject.ToString(Newtonsoft.Json.Formatting.Indented);
+            //SEModLoader.log.LogInfo("New text ! " + formattedJson);
 
             return formattedJson;
         }
-        static void UpdateJsonValue(JObject jsonObject, string keyPath, string value)
+
+        static void CompareAndUpdateJson(JObject original, JObject modded)
         {
-            string[] keys = keyPath.Split('.');
-            JToken current = jsonObject;
+            SEModLoader.log.LogInfo("Start comparing and updating values");
 
-            for (int i = 0; i < keys.Length; i++)
+            // Iterate over the keys in the modded object
+            foreach (var moddedProperty in modded)
             {
-                string key = keys[i];
+                string key = moddedProperty.Key;
+                JToken moddedValue = moddedProperty.Value;
 
-                // Handle array indices if present (e.g., "array[0]")
-                if (key.Contains("["))
+                // Check if the key exists in the original JSON
+                if (original.ContainsKey(key))
                 {
-                    var arrayKey = key.Substring(0, key.IndexOf("["));
-                    int index = int.Parse(key.Substring(key.IndexOf("[") + 1, key.IndexOf("]") - key.IndexOf("[") - 1));
+                    JToken originalValue = original[key];
 
-                    // Ensure array exists at this key
-                    if (current[arrayKey] == null)
-                        current[arrayKey] = new JArray();
-
-                    JArray array = (JArray)current[arrayKey];
-
-                    // Expand array to required index if necessary
-                    while (array.Count <= index)
-                        array.Add(null);
-
-                    if (i == keys.Length - 1)
+                    // If both values are objects, recurse to compare nested structures
+                    if (moddedValue.Type == JTokenType.Object && originalValue.Type == JTokenType.Object)
                     {
-                        array[index] = value;
+                        SEModLoader.log.LogInfo($"Comparing nested object at key: {key}");
+                        CompareAndUpdateJson((JObject)originalValue, (JObject)moddedValue);
                     }
-                    else
+                    // If both values are arrays, compare array elements
+                    else if (moddedValue.Type == JTokenType.Array && originalValue.Type == JTokenType.Array)
                     {
-                        if (array[index] == null)
-                            array[index] = new JObject();
-
-                        current = array[index];
+                        SEModLoader.log.LogInfo($"Comparing arrays at key: {key}");
+                        CompareAndUpdateJsonArrays((JArray)originalValue, (JArray)moddedValue, key);
+                    }
+                    // If values are simple (string, number, etc.), compare and update directly
+                    else if (!JToken.DeepEquals(originalValue, moddedValue))
+                    {
+                        SEModLoader.log.LogInfo($"Updating key {key}: original value = {originalValue}, modded value = {moddedValue}");
+                        original[key] = moddedValue;  // Update the value
                     }
                 }
                 else
                 {
-                    // Handle nested objects
-                    if (i == keys.Length - 1)
+                    SEModLoader.log.LogInfo($"Key {key} not found in original JSON.");
+                }
+            }
+        }
+
+        static void CompareAndUpdateJsonArrays(JArray originalArray, JArray moddedArray, string arrayKey)
+        {
+            SEModLoader.log.LogInfo($"Updating array at key: {arrayKey}");
+
+            // Loop through each item in the modded array
+            foreach (var moddedItem in moddedArray)
+            {
+                // Find a matching item in the original array (assuming `id` is the unique identifier)
+                string moddedId = moddedItem["id"]?.ToString();
+
+                if (moddedId != null)
+                {
+                    var originalItem = originalArray.FirstOrDefault(item => item["id"]?.ToString() == moddedId);
+
+                    if (originalItem != null)
                     {
-                        current[key] = value;
+                        SEModLoader.log.LogInfo($"Found matching item in original array with id: {moddedId}");
+                        // Recursively compare and update the properties of this item
+                        CompareAndUpdateJson((JObject)originalItem, (JObject)moddedItem);
                     }
                     else
                     {
-                        if (current[key] == null)
-                            current[key] = new JObject();
-
-                        current = current[key];
+                        SEModLoader.log.LogInfo($"No matching item with id {moddedId} in original array.");
+                        // If no match is found, you could decide whether to add the new item or not
                     }
                 }
             }
-
         }
+
+
+
+
+
+
+
+
+
+
     }
 }
