@@ -110,6 +110,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Campaign_Patch.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="Icons_Patch.cs" />
     <Compile Include="ItemController_Patch.cs" />

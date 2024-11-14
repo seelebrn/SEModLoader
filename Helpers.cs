@@ -5,13 +5,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
-
+using System.IO;
 namespace SEModLoader
 {
     internal class Helpers
     {
-        public class Helpers
-        {
+        
             static void PopulateDictionary(JToken token, Dictionary<string, string> dict, string prefix = "")
             {
                 if (token is JObject jsonObject)
@@ -131,5 +130,5 @@ namespace SEModLoader
                 }
             }
         }
-    }
+    
 }

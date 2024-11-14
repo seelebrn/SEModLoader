@@ -34,6 +34,7 @@ namespace SEModLoader
         public static string pluginspath = BepInEx.Paths.PluginPath.ToString();
         private static Harmony harmony;
         // Dictionary to store various modded resources
+        public static Dictionary<string, string> moddedCampaigns = new Dictionary<string, string>();
         public static Dictionary<string, string> moddedresources = new Dictionary<string, string>();
         public static Dictionary<string, string> moddedicons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public static Dictionary<string, Texture2D> moddediconsTex = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
@@ -174,6 +175,13 @@ namespace SEModLoader
                                     log.LogInfo("Added strings : " + key + " : " + value);
                                 }
                             }
+
+                            if (Path.GetFullPath(file).Contains(".srt"))
+                            {
+                                log.LogInfo("Added strings to modifiedstrings from " + Path.GetFullPath(file));
+                                moddedCampaigns.Add(file, file); //?
+                            }
+
                         }
                     }
                 }
