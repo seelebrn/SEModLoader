@@ -110,9 +110,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
-    <Compile Include="MeshImporter.cs" />
+    <Compile Include="Helpers.cs" />
+    <Compile Include="Icons_Patch.cs" />
+    <Compile Include="ItemController_Patch.cs" />
+    <Compile Include="LanguageScene_Patch.cs" />
+    <Compile Include="Language_Patch.cs" />
+    <Compile Include="SEModLoader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StreamReader_Patch.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
