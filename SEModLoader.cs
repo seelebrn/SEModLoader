@@ -10,6 +10,7 @@ using System.IO;                       // File input/output handling
 using System.Linq;                     // Linq for data manipulation
 using System.Reflection;               // Reflection utilities
 using System.Text;                     // String manipulation utilities
+using System.Threading;
 using UnityEngine;                     // Unity's main library
 
 namespace SEModLoader
@@ -34,13 +35,15 @@ namespace SEModLoader
         public static string pluginspath = BepInEx.Paths.PluginPath.ToString();
         private static Harmony harmony;
         // Dictionary to store various modded resources
+        public static Dictionary<string, Dictionary<string, string>> mods = new Dictionary<string, Dictionary<string, string>>();
         public static Dictionary<string, string> moddedCampaigns = new Dictionary<string, string>();
         public static Dictionary<string, string> moddedresources = new Dictionary<string, string>();
         public static Dictionary<string, string> moddedicons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public static Dictionary<string, Texture2D> moddediconsTex = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
         public static Dictionary<string, GameObject> moddedMeshes = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
         public static Dictionary<string, string> modifiedstrings = new Dictionary<string, string>();
-
+        public static string modsPath = Path.Combine(BepInEx.Paths.PluginPath, "ModdedContent", "Mods");
+        public static readonly ThreadLocal<bool> IsIntercepting = new ThreadLocal<bool>(() => false);
         // Logger instance for logging messages
         public static BepInEx.Logging.ManualLogSource log;
 
@@ -59,19 +62,61 @@ namespace SEModLoader
             Logger.LogInfo("Hello World ! Welcome to Cadenza's SE Mod Loader!");
 
             // Register modded data and meshes
-            RegisterModdedData();
-            RegisterModdedMeshes(moddedMeshes);
-
+            RegisterMods();
+            foreach(var mod in mods)
+            { 
+            RegisterModdedData(mod.Key);
+            RegisterModdedMeshes(moddedMeshes, mod.Key);
+            }
             // Initialize and apply Harmony patches
             harmony = new Harmony("Cadenza.SE.SEModLoader");
             harmony.PatchAll();
         }
+        private void RegisterMods()
+        {
+            foreach (var directory in Directory.GetDirectories(modsPath))
+            {
+                if (Directory.Exists(directory))
+                {
+                    var modfiles = Directory.GetFiles(directory);
+                    if (File.Exists(Path.Combine(directory, "mod.json")))
+                    {
+                        var file = Path.Combine(directory, "mod.json");
+                        try
+                        {
+                            // Read the content of the JSON file
+                            string jsonContent = File.ReadAllText(file);
 
+                            // Parse the JSON content into a JObject
+                            JObject jsonObject = JObject.Parse(jsonContent);
+                            Dictionary<string, string> modRef = new Dictionary<string, string>();
+
+                            // Iterate through each key-value pair in the JSON object
+                            foreach (var kvp in jsonObject)
+                            {
+                                modRef.Add(kvp.Key, kvp.Value.ToString());
+                                
+                            }
+                            mods.Add(directory.ToString(), modRef);
+                            log.LogInfo($"Registered Mod: {mods[directory.ToString()]["modid"]}");
+                            log.LogInfo($"Mod Description : {mods[directory.ToString()]["description"]}");
+                            log.LogInfo($"Mod Version : {mods[directory.ToString()]["version"]}");
+
+                        }
+                        catch (Exception ex)
+                        {
+                            log.LogInfo($"Failed to load or parse JSON: {ex.Message}");
+                        }
+                    }
+
+                }
+            }
+        }
         // Register modded meshes into a dictionary
-        static public void RegisterModdedMeshes(Dictionary<string, GameObject> dict)
+        static public void RegisterModdedMeshes(Dictionary<string, GameObject> dict, string dir)
         {
             // Iterate through directories in the "ModdedContent" folder
-            foreach (var folder in Directory.GetDirectories(Path.Combine(pluginspath, "ModdedContent")))
+            foreach (var folder in Directory.GetDirectories(dir))
             {
                 // Check if the folder matches one of the exposed paths
                 foreach (string path in ExposedPaths)
@@ -122,11 +167,12 @@ namespace SEModLoader
             }
         }
 
+    
         // Register modded data (JSONs, icons, strings)
-        private void RegisterModdedData()
+        private void RegisterModdedData(string dir)
         {
             // Register .json files in "ModdedContent" folder
-            foreach (var file in Directory.GetFiles(Path.Combine(pluginspath, "ModdedContent")))
+            foreach (var file in Directory.GetFiles(dir))
             {
                 if (Path.GetFullPath(file).Contains(".json"))
                 {
@@ -136,7 +182,7 @@ namespace SEModLoader
             }
 
             // Register files in subdirectories of "ModdedContent"
-            foreach (var folder in Directory.GetDirectories(Path.Combine(pluginspath, "ModdedContent")))
+            foreach (var folder in Directory.GetDirectories(dir))
             {
                 foreach (string path in ExposedPaths)
                 {
@@ -145,7 +191,7 @@ namespace SEModLoader
                         foreach (var file in Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories))
                         {
                             // Register .json files
-                            if (Path.GetFullPath(file).Contains(".json"))
+                            if (Path.GetFullPath(file).Contains(".json") && !Path.GetFullPath(file).Contains("mod.json"))
                             {
                                 log.LogInfo("Added new json to moddedresources : " + Path.GetFileName(file) + " // " + Path.GetFullPath(file));
                                 moddedresources.Add(Path.GetFullPath(file), Path.GetFileName(file));

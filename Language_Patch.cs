@@ -23,8 +23,9 @@ namespace SEModLoader
                     string fileName = Path.GetFileName(text2);
                     Language.languages.AddLanguage(fileName, text2);
                 }
-
-                text = Path.Combine(BepInEx.Paths.PluginPath, "ModdedContent", "Language");
+                foreach(var mod in SEModLoader.mods)
+                { 
+                text = Path.Combine(mod.Key);
 
                 foreach (string text2 in Directory.GetDirectories(text))
                 {
@@ -32,7 +33,7 @@ namespace SEModLoader
                     Language.languages.AddLanguage(fileName, text2);
                     SEModLoader.log.LogInfo("FileName : " + fileName + " // text2 : " + text2);
                 }
-
+                }
 
 
 
