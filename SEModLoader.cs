@@ -216,15 +216,15 @@ namespace SEModLoader
                                 string directory = Path.GetDirectoryName(file);
                                 string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file);
                                 scenesDict.Add(fileNameWithoutExtension, directory);
-                                log.LogInfo("Added new Scene ! : Key : " + fileNameWithoutExtension + " // Value : " + directory);
+                                log.LogInfo("Added csv lines to SceneDict ! : Key : " + fileNameWithoutExtension + " // Value : " + directory);
                                 string[] lines = File.ReadAllLines(file);
-                                log.LogInfo("Added strings to modifiedstrings from " + Path.GetFullPath(file));
+                                log.LogInfo("Added strings from csv to modifiedstrings from " + Path.GetFullPath(file));
                                 foreach (var line in lines)
                                 {
                                     string key = line.Split(';')[0];
                                     string value = line.Split(';')[1];
                                     modifiedstrings.Add(key, value);
-                                    log.LogInfo("Added strings : " + key + " : " + value);
+                                    log.LogInfo("Added strings to modifiedstrings : " + key + " : " + value);
                                 }
                             }
 
