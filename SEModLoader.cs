@@ -42,6 +42,8 @@ namespace SEModLoader
         public static Dictionary<string, Texture2D> moddediconsTex = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
         public static Dictionary<string, GameObject> moddedMeshes = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
         public static Dictionary<string, string> modifiedstrings = new Dictionary<string, string>();
+        public static Dictionary<string, string> scenesDict = new Dictionary<string, string>();
+
         public static string modsPath = Path.Combine(BepInEx.Paths.PluginPath, "ModdedContent", "Mods");
         public static readonly ThreadLocal<bool> IsIntercepting = new ThreadLocal<bool>(() => false);
         // Logger instance for logging messages
@@ -211,6 +213,10 @@ namespace SEModLoader
                             // Register .csv files as modified strings
                             if (Path.GetFullPath(file).Contains(".csv") && !Path.GetFullPath(file).Contains("Conversation"))
                             {
+                                string directory = Path.GetDirectoryName(file);
+                                string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file);
+                                scenesDict.Add(fileNameWithoutExtension, directory);
+                                log.LogInfo("Added new Scene ! : Key : " + fileNameWithoutExtension + " // Value : " + directory);
                                 string[] lines = File.ReadAllLines(file);
                                 log.LogInfo("Added strings to modifiedstrings from " + Path.GetFullPath(file));
                                 foreach (var line in lines)

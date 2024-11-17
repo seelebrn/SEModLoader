@@ -40,7 +40,7 @@ namespace SEModLoader
                     //SEModLoader.log.LogInfo("campaign : " + campaign);
                     if (path.Contains(campaign))
                     {
-                        
+
 
                         var moddedCampaignDir = Path.Combine(path, "Campaigns");
                         string[] dir2 = Directory.GetDirectories(moddedCampaignDir);
@@ -211,10 +211,10 @@ namespace SEModLoader
 
                                         var im = gameObject.GetComponent<InteractableMouse>();
                                         SEModLoader.log.LogInfo("IM.Name : " + im.name);
-                                        foreach(var x in campaignMap.GetComponentsInChildren<InteractableMouse>())
+                                        foreach (var x in campaignMap.GetComponentsInChildren<InteractableMouse>())
                                         {
                                             SEModLoader.log.LogInfo("InteractableMouse in campaignMap : " + x.name);
-                                            
+
                                         }
 
                                     }
@@ -296,7 +296,7 @@ namespace SEModLoader
                                         }
                                     }
                                     SEModLoader.log.LogInfo($"Is {gameObject.name} active: {gameObject.activeSelf}");
-                                    
+
 
                                     if (campaign == null)
                                     {
@@ -310,8 +310,9 @@ namespace SEModLoader
                                         {
                                             SEModLoader.log.LogError("Could not find SelectCampaign method on the target class.");
                                         }
-                                        
+
                                     }
+                                    SEModLoader.log.LogError("Campaign added final : " + campaign.config.id);
 
                                 }
                                 else
@@ -332,13 +333,13 @@ namespace SEModLoader
                 SEModLoader.log.LogInfo($"CampaignMap retrieved: {campaignMap.name}");
                 SEModLoader.log.LogInfo($"CampaignMap retrieved: {campaignMap.name}");
 
-               
-                
+
+
             }
 
-            
+
         }
-/*        //for Debug only
+        //for Debug only
         [HarmonyPatch(typeof(StartMenu), "SelectCampaign")]
         static class StartMenu_SelectCampaign_Patch
         {
@@ -359,58 +360,72 @@ namespace SEModLoader
                 SEModLoader.log.LogInfo($"Current campaign: {currentCampaign?.gameObject.name ?? "NULL"}");
 
                 // Debugging campaign selection
-                try
-                {
-                    Campaign campaign = new Campaign(campaignSelected?.gameObject.name);
-                    SEModLoader.log.LogInfo($"Loaded campaign: {campaign.config.id}");
 
-                    // UI Updates
-                    SEModLoader.log.LogInfo($"Campaign name: {Language.Get("campaign-" + campaign.config.id, "name")}");
-                    SEModLoader.log.LogInfo($"Campaign description: {Language.Get("campaign-" + campaign.config.id, "description")}");
-                }
-                catch (Exception ex)
-                {
-                    SEModLoader.log.LogError($"Error processing selected campaign: {ex.Message}");
-                }
+                Campaign campaign = new Campaign(campaignSelected?.gameObject.name);
+                SEModLoader.log.LogInfo($"Loaded campaign: {campaign.config.id}");
 
-                SEModLoader.log.LogInfo($"Exiting SelectCampaign for campaignSelected: {campaignSelected?.gameObject.name ?? "NULL"}");
-            }
-        }
-        [HarmonyPatch(typeof(StartMenu), "SelectCampaign")]
-        static class StartMenu_SelectCampaign_DebugPatch
-        {
-            static void Prefix(StartMenu __instance, InteractableMouse campaignSelected)
-            {
-                SEModLoader.log.LogInfo($"Entering SelectCampaign. Campaign selected: {campaignSelected?.gameObject.name ?? "NULL"}");
-
-                // Access the private campaign field
-                var campaignField = AccessTools.Field(typeof(StartMenu), "campaign");
-                if (campaignField != null)
+                // UI Updates
+                if (Language.Get("campaign-" + campaign.config.id, "name") == null)
                 {
-                    var currentCampaign = (InteractableMouse)campaignField.GetValue(__instance);
-                    SEModLoader.log.LogInfo($"Current campaign: {currentCampaign?.gameObject.name ?? "NULL"}");
+                    SEModLoader.log.LogInfo("Language.Get(\"campaign-\" + campaign.config.id, \"name\") does not exist for : " + "campaign-" + campaign.config.id);
                 }
                 else
                 {
-                    SEModLoader.log.LogError("Could not access the private 'campaign' field.");
+
+                    SEModLoader.log.LogInfo("Language.Get(\"campaign-\" + campaign.config.id, \"name\") exists for : " + "campaign-" + campaign.config.id);
+
+
                 }
+                SEModLoader.log.LogInfo($"Campaign name: {Language.Get("campaign-" + campaign.config.id, "name")}");
+                SEModLoader.log.LogInfo($"Campaign description: {Language.Get("campaign-" + campaign.config.id, "description")}");
+                SEModLoader.log.LogInfo($"Exiting SelectCampaign for campaignSelected: {campaignSelected?.gameObject.name ?? "NULL"}");
+
             }
 
-            static void Postfix(StartMenu __instance, InteractableMouse campaignSelected)
+
+
+
+
+
+
+
+        }
+    }
+    [HarmonyPatch(typeof(StartMenu), "SelectCampaign")]
+    static class StartMenu_SelectCampaign_DebugPatch
+    {
+        static void Prefix(StartMenu __instance, InteractableMouse campaignSelected)
+        {
+            var f = (InteractableMouse)typeof(StartMenu)
+.GetField("campaign", BindingFlags.Instance | BindingFlags.NonPublic)
+.GetValue(__instance);
+
+            if (f != null)
             {
-                SEModLoader.log.LogInfo($"Exiting SelectCampaign. Campaign selected: {campaignSelected?.gameObject.name ?? "NULL"}");
-
-                // Access and log the current campaign after selection
-                var campaignField = AccessTools.Field(typeof(StartMenu), "campaign");
-                if (campaignField != null)
+                SEModLoader.log?.LogInfo($"Accessed 'campaign': {f}");
+                Campaign campaign = new Campaign(f.gameObject.name);
+                if (f.gameObject.name != null)
                 {
-                    var currentCampaign = (InteractableMouse)campaignField.GetValue(__instance);
-                    SEModLoader.log.LogInfo($"Post-selection, current campaign: {currentCampaign?.gameObject.name ?? "NULL"}");
+                    SEModLoader.log.LogInfo("campaignSelected - f.gameObject.name: " + f.gameObject.name);
+                    SEModLoader.log.LogInfo("campaignSelected - Language_Get : " + Language.Get("campaign-" + campaign.config.id, "name"));
                 }
-            }
-        }*/
+                else
+                {
+                    SEModLoader.log.LogInfo("campaignSelected - f.gameObject.name is null ! ");
 
+                }
+                SEModLoader.log.LogInfo("campaignSelected - campaign.config.id : " + campaign.config.id);
+            }
+
+            else
+            {
+                SEModLoader.log?.LogInfo("Failed to access 'campaign'.");
+            }
+        }
 
     }
+
+
 }
+
 
